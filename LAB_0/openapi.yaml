@@ -1,0 +1,398 @@
+﻿openapi: 3.0.3
+info:
+  title: Social Network API
+  version: 1.0.0
+  description: |
+    REST API для базовых сценариев социальной сети.
+    Включает операции:
+    - добавление в друзья;
+    - удаление из друзей;
+    - просмотр друзей пользователя;
+    - просмотр анкеты пользователя;
+    - публикация поста в ленту.
+servers:
+  - url: https://api.social-network.local/v1
+    description: Пример базового URL
+
+tags:
+  - name: Users
+    description: Работа с профилями пользователей
+  - name: Friends
+    description: Работа с дружбой
+  - name: Posts
+    description: Работа с постами в ленте
+
+paths:
+  /users/{userId}:
+    get:
+      tags: [Users]
+      summary: Получить анкету пользователя
+      description: Возвращает публичные данные анкеты пользователя по его идентификатору.
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+      responses:
+        '200':
+          description: Анкета найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+              examples:
+                ok:
+                  value:
+                    id: 1001
+                    firstName: Ivan
+                    lastName: Petrov
+                    birthDate: '2001-04-21'
+                    city: Moscow
+                    about: Люблю путешествия и спорт.
+                    avatarUrl: https://cdn.social-network.local/avatars/1001.jpg
+                    createdAt: '2026-05-20T10:30:00Z'
+        '404':
+          $ref: '#/components/responses/UserNotFound'
+
+  /users/{userId}/friends:
+    get:
+      tags: [Friends]
+      summary: Получить список друзей пользователя
+      description: Возвращает список друзей выбранного пользователя.
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Количество элементов на странице.
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+          description: Смещение от начала списка.
+      responses:
+        '200':
+          description: Список друзей получен
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    example: 2
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Friend'
+                required: [total, items]
+              examples:
+                ok:
+                  value:
+                    total: 2
+                    items:
+                      - userId: 2001
+                        firstName: Anna
+                        lastName: Smirnova
+                        avatarUrl: https://cdn.social-network.local/avatars/2001.jpg
+                        friendsSince: '2026-01-12T09:00:00Z'
+                      - userId: 2002
+                        firstName: Oleg
+                        lastName: Sidorov
+                        avatarUrl: https://cdn.social-network.local/avatars/2002.jpg
+                        friendsSince: '2026-02-01T14:20:00Z'
+        '404':
+          $ref: '#/components/responses/UserNotFound'
+
+    post:
+      tags: [Friends]
+      summary: Добавить в друзья
+      description: Создает связь дружбы между двумя пользователями.
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddFriendRequest'
+            examples:
+              request:
+                value:
+                  friendId: 2001
+      responses:
+        '201':
+          description: Пользователь добавлен в друзья
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FriendshipResult'
+              examples:
+                created:
+                  value:
+                    userId: 1001
+                    friendId: 2001
+                    status: accepted
+                    createdAt: '2026-05-29T12:00:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/UserNotFound'
+        '409':
+          description: Такая дружба уже существует
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: FRIENDSHIP_ALREADY_EXISTS
+                  message: Пользователи уже находятся в друзьях.
+
+  /users/{userId}/friends/{friendId}:
+    delete:
+      tags: [Friends]
+      summary: Удалить из друзей
+      description: Удаляет связь дружбы между пользователями.
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+        - $ref: '#/components/parameters/FriendIdPath'
+      responses:
+        '200':
+          description: Друг удален
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessage'
+              example:
+                message: Друг удален из списка друзей.
+        '404':
+          description: Пользователь или дружба не найдены
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                userNotFound:
+                  value:
+                    error:
+                      code: USER_NOT_FOUND
+                      message: Пользователь не найден.
+                friendshipNotFound:
+                  value:
+                    error:
+                      code: FRIENDSHIP_NOT_FOUND
+                      message: Связь дружбы не найдена.
+
+  /users/{userId}/posts:
+    post:
+      tags: [Posts]
+      summary: Опубликовать пост в ленту
+      description: Создает новый пост от имени пользователя.
+      parameters:
+        - $ref: '#/components/parameters/UserIdPath'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePostRequest'
+            examples:
+              request:
+                value:
+                  text: Сегодня отличный день для прогулки.
+      responses:
+        '201':
+          description: Пост успешно создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Post'
+              examples:
+                created:
+                  value:
+                    id: 5001
+                    authorId: 1001
+                    text: Сегодня отличный день для прогулки.
+                    visibility: friends
+                    createdAt: '2026-05-29T12:05:00Z'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/UserNotFound'
+
+components:
+  parameters:
+    UserIdPath:
+      name: userId
+      in: path
+      required: true
+      description: Идентификатор пользователя
+      schema:
+        type: integer
+        format: int64
+        example: 1001
+    FriendIdPath:
+      name: friendId
+      in: path
+      required: true
+      description: Идентификатор друга
+      schema:
+        type: integer
+        format: int64
+        example: 2001
+
+  responses:
+    UserNotFound:
+      description: Пользователь не найден
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: USER_NOT_FOUND
+              message: Пользователь не найден.
+    BadRequest:
+      description: Некорректный запрос
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error:
+              code: VALIDATION_ERROR
+              message: Переданы некорректные данные запроса.
+
+  schemas:
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Уникальный идентификатор пользователя
+        firstName:
+          type: string
+        lastName:
+          type: string
+        birthDate:
+          type: string
+          format: date
+        city:
+          type: string
+        about:
+          type: string
+        avatarUrl:
+          type: string
+          format: uri
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, firstName, lastName, createdAt]
+
+    Friend:
+      type: object
+      properties:
+        userId:
+          type: integer
+          format: int64
+          description: Идентификатор друга
+        firstName:
+          type: string
+        lastName:
+          type: string
+        avatarUrl:
+          type: string
+          format: uri
+        friendsSince:
+          type: string
+          format: date-time
+      required: [userId, firstName, lastName, friendsSince]
+
+    AddFriendRequest:
+      type: object
+      properties:
+        friendId:
+          type: integer
+          format: int64
+          description: Идентификатор пользователя, которого добавляют в друзья
+      required: [friendId]
+
+    FriendshipResult:
+      type: object
+      properties:
+        userId:
+          type: integer
+          format: int64
+        friendId:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum: [accepted]
+        createdAt:
+          type: string
+          format: date-time
+      required: [userId, friendId, status, createdAt]
+
+    CreatePostRequest:
+      type: object
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 5000
+          description: Текст поста
+        visibility:
+          type: string
+          enum: [public, friends, private]
+          default: friends
+          description: Уровень видимости поста
+      required: [text]
+
+    Post:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        authorId:
+          type: integer
+          format: int64
+        text:
+          type: string
+        visibility:
+          type: string
+          enum: [public, friends, private]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, authorId, text, visibility, createdAt]
+
+    SuccessMessage:
+      type: object
+      properties:
+        message:
+          type: string
+      required: [message]
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: Машинно-читаемый код ошибки
+            message:
+              type: string
+              description: Понятное описание ошибки
+          required: [code, message]
+      required: [error]

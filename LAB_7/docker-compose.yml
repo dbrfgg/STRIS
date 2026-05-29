@@ -1,0 +1,21 @@
+﻿services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: lab7-postgres
+    environment:
+      POSTGRES_DB: lab7
+      POSTGRES_USER: lab7
+      POSTGRES_PASSWORD: lab7
+    ports:
+      - "8401:5432"
+
+  app:
+    build:
+      context: ./app
+    container_name: lab7-app
+    environment:
+      DATABASE_URL: postgresql+psycopg2://lab7:lab7@postgres:5432/lab7
+    depends_on:
+      - postgres
+    ports:
+      - "8400:8000"

@@ -1,0 +1,31 @@
+services:
+  master:
+    build:
+      context: ./master
+    container_name: lab3-master
+    environment:
+      NODE_NAME: master
+      REPLICA_URLS: http://replica-1:8200,http://replica-2:8200
+    ports:
+      - "8202:8200"
+    depends_on:
+      - replica-1
+      - replica-2
+
+  replica-1:
+    build:
+      context: ./replica
+    container_name: lab3-replica-1
+    environment:
+      NODE_NAME: replica-1
+    ports:
+      - "8203:8200"
+
+  replica-2:
+    build:
+      context: ./replica
+    container_name: lab3-replica-2
+    environment:
+      NODE_NAME: replica-2
+    ports:
+      - "8204:8200"
